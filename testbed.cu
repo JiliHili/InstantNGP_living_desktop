@@ -2071,15 +2071,35 @@ mat3 Testbed::rotation_from_angles(const vec2& angles) const {
 }
 
 void Testbed::mouse_drag() {
-	vec2 rel = vec2{ImGui::GetIO().MouseDelta.x, ImGui::GetIO().MouseDelta.y} / (float)m_window_res[m_fov_axis];
-	vec2 mouse = {ImGui::GetMousePos().x, ImGui::GetMousePos().y};
+	//vec2 rel = vec2{ImGui::GetIO().MouseDelta.x, ImGui::GetIO().MouseDelta.y} / (float)m_window_res[m_fov_axis];
+	//vec2 mouse = {ImGui::GetMousePos().x, ImGui::GetMousePos().y};
+	POINT currentMousePos;
+	GetCursorPos(&currentMousePos);
+
+	// 计算鼠标增量
+	static POINT lastMousePos = currentMousePos; // 保存上一次的鼠标位置
+	vec2 rel = vec2{
+		static_cast<float>(currentMousePos.x - lastMousePos.x),
+		static_cast<float>(currentMousePos.y - lastMousePos.y)
+	} / (float)m_window_res[m_fov_axis];
+
+	lastMousePos = currentMousePos;
+
+	//printf("Mouse Position: X: %ld, Y: %ld\n", currentMousePos.x, currentMousePos.y);
+	//printf("Mouse Delta: X: %.2f, Y: %.2f\n", rel.x, rel.y);
+	POINT mp;
+	GetCursorPos(&mp);
+	float mx = mp.x;
+	float my = mp.y;
+	vec2 mouse = { mx, my };
+	//mouse = { ImGui::GetMousePos().x, ImGui::GetMousePos().y };
 
 	vec3 side = m_camera[0];
 
 	bool shift = ImGui::GetIO().KeyMods & ImGuiKeyModFlags_Shift;
 
 	// Left held
-	if (ImGui::GetIO().MouseDown[0]) {
+	if (1) {
 		if (shift) {
 			m_autofocus_target = get_3d_pos_from_pixel(*m_views.front().render_buffer, mouse);
 			m_autofocus = true;
@@ -2087,17 +2107,29 @@ void Testbed::mouse_drag() {
 			reset_accumulation();
 		} else {
 			float rot_sensitivity = m_fps_camera ? 0.35f : 1.0f;
+			if (rel.x >= 0.03f)
+			{
+				rel.x = 0.03f;
+			}
+			else if (rel.x <= -0.03f)
+			{
+				rel.x = -0.03f;
+			}
 			mat3 rot = rotation_from_angles(-rel * 2.0f * PI() * rot_sensitivity);
-
-			if (m_fps_camera) {
-				rot *= mat3(m_camera);
-				m_camera = mat4x3(rot[0], rot[1], rot[2], m_camera[3]);
-			} else {
-				// Turntable
-				auto old_look_at = look_at();
-				set_look_at({0.0f, 0.0f, 0.0f});
-				m_camera = rot * m_camera;
-				set_look_at(old_look_at);
+			printf("%.2f\n",rel.x);
+			if (GetAsyncKeyState(VK_LCONTROL) & 0x8000)
+			{
+				if (m_fps_camera) {
+					rot *= mat3(m_camera);
+					m_camera = mat4x3(rot[0], rot[1], rot[2], m_camera[3]);
+				}
+				else {
+					// Turntable
+					auto old_look_at = look_at();
+					set_look_at({ 0.0f, 0.0f, 0.0f });
+					m_camera = rot * m_camera;
+					set_look_at(old_look_at);
+				}
 			}
 
 			reset_accumulation(true);
